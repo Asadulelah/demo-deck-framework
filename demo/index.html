@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian Freight OS — demo deck</title>
+<style>
+  :root {
+    --ink:#0B0E13; --panel:#12161E; --panel2:#171C26; --line:#232A38;
+    --bone:#E8EAF0; --dim:#8A93A6; --faint:#5A6375;
+    --mint:#4ADE9E; --amber:#F5B84D; --blood:#E4573F; --sky:#5CA8F0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:var(--ink); overflow:hidden;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--bone); }
+  #wrap { width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
+  #canvas { width:1920px; height:1080px; position:relative; transform-origin:center center; flex:none; }
+  .screen { position:absolute; inset:0; display:none; }
+  .screen.active { display:block; }
+
+  /* ---------- app shell ---------- */
+  .shell { position:absolute; inset:60px 80px 130px 80px; background:var(--panel);
+    border:1px solid var(--line); border-radius:14px; display:flex; overflow:hidden; }
+  .side { width:250px; background:var(--ink); border-right:1px solid var(--line); padding:26px 0; flex:none; }
+  .logo { padding:0 26px 26px; font-weight:700; font-size:19px; letter-spacing:.4px; }
+  .logo b { color:var(--accent,#4ADE9E); }
+  .nav a { display:flex; align-items:center; gap:12px; padding:12px 26px; color:var(--dim);
+    font-size:15px; text-decoration:none; border-left:3px solid transparent; }
+  .nav a.on { color:var(--bone); background:var(--panel2); border-left-color:var(--accent,#4ADE9E); }
+  .nav .dot { width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.5; }
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .top { height:64px; border-bottom:1px solid var(--line); display:flex; align-items:center;
+    padding:0 30px; gap:22px; flex:none; }
+  .top .title { font-size:17px; font-weight:600; }
+  .top .search { margin-left:auto; background:var(--ink); border:1px solid var(--line); border-radius:8px;
+    padding:8px 16px; color:var(--faint); font-size:13px; width:280px; }
+  .top .user { width:36px; height:36px; border-radius:50%; background:var(--panel2);
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:var(--dim); }
+  .body { flex:1; padding:28px 30px; overflow:hidden; }
+
+  /* ---------- caption ---------- */
+  .caption { position:absolute; left:80px; right:80px; bottom:44px; display:flex; align-items:center; gap:18px; }
+  .caption .tag { font-family:Consolas, monospace; font-size:14px; letter-spacing:2px;
+    color:var(--accent,#4ADE9E); border:1px solid var(--accent,#4ADE9E); padding:6px 14px; border-radius:99px; }
+  .caption .line { font-size:21px; color:var(--bone); }
+  .caption .idx { margin-left:auto; font-family:Consolas, monospace; font-size:14px; color:var(--faint); }
+
+  /* ---------- widgets ---------- */
+  .grid { display:grid; gap:16px; height:100%; }
+  .card { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:20px; overflow:hidden; }
+  .kpi .lab { font-size:13px; color:var(--dim); letter-spacing:1px; text-transform:uppercase; }
+  .kpi .val { font-size:42px; font-weight:700; margin-top:8px; letter-spacing:-1px; }
+  .kpi .sub { font-size:13px; margin-top:6px; color:var(--dim); }
+  .up { color:var(--mint); } .down { color:var(--blood); } .warn { color:var(--amber); }
+  table { width:100%; border-collapse:collapse; font-size:14.5px; }
+  th { text-align:left; color:var(--faint); font-weight:500; font-size:12.5px; letter-spacing:1px;
+    text-transform:uppercase; padding:0 12px 12px 0; border-bottom:1px solid var(--line); }
+  td { padding:12px 12px 12px 0; border-bottom:1px solid var(--line); color:var(--bone); }
+  .pill { font-size:12px; padding:4px 12px; border-radius:99px; display:inline-block; }
+  .p-mint { background:rgba(74,222,158,.12); color:var(--mint); }
+  .p-amber { background:rgba(245,184,77,.14); color:var(--amber); }
+  .p-blood { background:rgba(228,87,63,.14); color:var(--blood); }
+  .p-sky { background:rgba(92,168,240,.14); color:var(--sky); }
+  .bar { height:8px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:10px; }
+  .bar i { display:block; height:100%; border-radius:99px; }
+  .cardtitle { font-size:15px; font-weight:600; margin-bottom:14px; display:flex; align-items:center; }
+  .cardtitle span { margin-left:auto; font-size:12px; color:var(--faint); font-weight:400; }
+
+  /* ---------- cover / hub / close ---------- */
+  .heroframe { position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; }
+  .heroframe .shellghost { position:absolute; inset:60px 80px 130px 80px; background:var(--panel);
+    border:1px solid var(--line); border-radius:14px; opacity:.25; filter:blur(2px); }
+  .heroframe h1 { font-size:88px; letter-spacing:-2px; position:relative; }
+  .heroframe h1 b { color:var(--accent,#4ADE9E); }
+  .heroframe p { font-size:24px; color:var(--dim); margin-top:18px; position:relative; }
+  .hub { position:relative; width:100%; height:100%; }
+  .hub .center { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    background:var(--panel2); border:1px solid var(--accent); border-radius:16px; padding:26px 40px;
+    font-size:22px; font-weight:700; z-index:2; }
+  .hub .node { position:absolute; background:var(--panel2); border:1px solid var(--line);
+    border-radius:12px; padding:16px 24px; font-size:16px; color:var(--bone); z-index:2; }
+  .hub svg { position:absolute; inset:0; z-index:1; }
+  .hub svg line { stroke:var(--line); stroke-width:1.5; }
+  .chaos { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; width:70%; margin:0 auto; position:relative; }
+  .chaos .tool { background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+    padding:22px; font-size:16px; color:var(--dim); position:relative; }
+  .chaos .tool::after { content:'×'; position:absolute; top:8px; right:14px; color:var(--blood); font-size:20px; }
+  .bignum { font-size:64px; font-weight:700; letter-spacing:-2px; }
+
+  /* chat */
+  .chat { display:flex; flex-direction:column; gap:12px; }
+  .msg { max-width:70%; padding:12px 18px; border-radius:14px; font-size:14.5px; line-height:1.45; }
+  .msg.sys { background:var(--panel); border:1px solid var(--line); align-self:flex-start; }
+  .msg.them { background:rgba(92,168,240,.12); align-self:flex-end; }
+  .msg .meta { font-size:11.5px; color:var(--faint); margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="wrap"><div id="canvas"></div></div>
+<script>
+const ACCENTS = { mint:'#4ADE9E', amber:'#F5B84D', blood:'#E4573F', sky:'#5CA8F0' };
+const NAV = ['Dashboard','Dispatch','Quotes','Shipments','Invoices','Reports','Assistant','Settings'];
+
+function shell(active, title, content){
+  return `<div class="shell">
+    <div class="side">
+      <div class="logo">MERIDIAN <b>OS</b></div>
+      <div class="nav">${NAV.map(n=>`<a class="${n===active?'on':''}"><span class="dot"></span>${n}</a>`).join('')}</div>
+    </div>
+    <div class="main">
+      <div class="top"><div class="title">${title}</div><div class="search">Search shipments, clients, invoices…</div><div class="user">RM</div></div>
+      <div class="body">${content}</div>
+    </div>
+  </div>`;
+}
+function caption(tag, line, i, n, accent){
+  return `<div class="caption" style="--accent:${accent}">
+    <span class="tag">${tag}</span><span class="line">${line}</span><span class="idx">${String(i).padStart(2,'0')} / ${String(n).padStart(2,'0')}</span></div>`;
+}
+
+const screens = [
+// 1 COVER
+{ accent:ACCENTS.mint, html:`
+  <div class="heroframe"><div class="shellghost"></div>
+    <h1>MERIDIAN <b>OS</b></h1>
+    <p>The operating system for your freight business. This is not a slideshow. It is the product.</p>
+  </div>` , cap:['COVER','Everything you are about to see is one application.',ACCENTS.mint] },
+
+// 2 PROBLEM
+{ accent:ACCENTS.blood, html:`
+  <div class="heroframe">
+    <div style="position:relative; width:100%;">
+      <div class="chaos">
+        ${['Spreadsheets ×14','WhatsApp groups','Legacy TMS','Email threads','Paper PODs','Accounting app','Driver calls','Sticky notes'].map(t=>`<div class="tool">${t}</div>`).join('')}
+      </div>
+      <div style="display:flex; gap:70px; justify-content:center; margin-top:70px;">
+        <div><div class="bignum" style="color:#E4573F">11h</div><div style="color:var(--dim)">per week finding one answer</div></div>
+        <div><div class="bignum" style="color:#E4573F">7%</div><div style="color:var(--dim)">of quotes never followed up</div></div>
+        <div><div class="bignum" style="color:#E4573F">3 days</div><div style="color:var(--dim)">to invoice after delivery</div></div>
+      </div>
+    </div>
+  </div>`, cap:['THE COST','Eight tools. Zero memory. This is what it costs.',ACCENTS.blood] },
+
+// 3 HUB
+{ accent:ACCENTS.sky, html:`
+  <div class="heroframe"><div class="hub">
+    <svg width="1920" height="1080">
+      ${[[560,300],[1360,300],[420,540],[1500,540],[560,780],[1360,780]].map(p=>`<line x1="960" y1="540" x2="${p[0]}" y2="${p[1]}"/>`).join('')}
+    </svg>
+    <div class="center" style="--accent:#5CA8F0">MERIDIAN OS</div>
+    <div class="node" style="left:460px; top:272px;">Dispatch</div>
+    <div class="node" style="left:1260px; top:272px;">Quotes</div>
+    <div class="node" style="left:300px; top:512px;">Shipments</div>
+    <div class="node" style="left:1400px; top:512px;">Invoices</div>
+    <div class="node" style="left:460px; top:752px;">Reports</div>
+    <div class="node" style="left:1260px; top:752px;">Assistant</div>
+  </div></div>`, cap:['ONE PLACE','Every module you saw in the chaos, under one login.',ACCENTS.sky] },
+
+// 4 DASHBOARD
+{ accent:ACCENTS.mint, html: shell('Dashboard','Dashboard',`
+  <div class="grid" style="grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(4,1fr);">
+    <div class="card kpi" style="grid-column:span 3; grid-row:span 2;"><div class="lab">Active shipments</div><div class="val">148</div><div class="sub"><span class="up">▲ 12</span> vs last week</div></div>
+    <div class="card kpi" style="grid-column:span 3; grid-row:span 2;"><div class="lab">Revenue this month</div><div class="val">₹41.6L</div><div class="sub"><span class="up">▲ 8%</span> on-target 91%</div><div class="bar"><i style="width:91%; background:#4ADE9E"></i></div></div>
+    <div class="card kpi" style="grid-column:span 3; grid-row:span 2;"><div class="lab">Quotes awaiting reply</div><div class="val">23</div><div class="sub"><span class="warn">6 quiet for 4+ days</span></div></div>
+    <div class="card kpi" style="grid-column:span 3; grid-row:span 2;"><div class="lab">Unpaid invoices</div><div class="val">₹7.2L</div><div class="sub"><span class="down">▼ oldest 34 days</span></div></div>
+    <div class="card" style="grid-column:span 8; grid-row:span 2;">
+      <div class="cardtitle">Live shipments <span>updated 2 min ago</span></div>
+      <table><tr><th>Ref</th><th>Client</th><th>Route</th><th>Driver</th><th>Status</th></tr>
+      <tr><td>MF-2481</td><td>Anchor Textiles</td><td>Kochi → Pune</td><td>Driver C</td><td><span class="pill p-mint">On schedule</span></td></tr>
+      <tr><td>MF-2478</td><td>Northline Traders</td><td>Chennai → Surat</td><td>Driver A</td><td><span class="pill p-amber">Delayed 2h</span></td></tr>
+      <tr><td>MF-2475</td><td>Corex Polymers</td><td>Kochi → Blr</td><td>Driver F</td><td><span class="pill p-mint">Delivered</span></td></tr></table>
+    </div>
+    <div class="card" style="grid-column:span 4; grid-row:span 2;">
+      <div class="cardtitle">Needs attention</div>
+      <table>
+      <tr><td>POD missing</td><td><span class="pill p-blood">MF-2461</span></td></tr>
+      <tr><td>Client quiet 9 days</td><td><span class="pill p-amber">Anchor Textiles</span></td></tr>
+      <tr><td>Insurance renewal</td><td><span class="pill p-sky">Truck KL-07</span></td></tr></table>
+    </div>
+  </div>`), cap:['DASHBOARD','The whole business on one screen, live, before your first call.',ACCENTS.mint] },
+
+// 5 DISPATCH
+{ accent:ACCENTS.amber, html: shell('Dispatch','Dispatch — Thursday plan',`
+  <div class="grid" style="grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(4,1fr);">
+    <div class="card" style="grid-column:span 7; grid-row:span 4;">
+      <div class="cardtitle">Tomorrow's runs <span>auto-planned 6:00 AM</span></div>
+      <table><tr><th>Run</th><th>Vehicle</th><th>Stops</th><th>Load</th><th>Status</th></tr>
+      <tr><td>R-114</td><td>KL-07 AT 4415</td><td>5</td><td>82%</td><td><span class="pill p-mint">Confirmed</span></td></tr>
+      <tr><td>R-115</td><td>KL-43 BX 1108</td><td>3</td><td>67%</td><td><span class="pill p-mint">Confirmed</span></td></tr>
+      <tr><td>R-116</td><td>KL-11 CQ 7738</td><td>7</td><td>94%</td><td><span class="pill p-amber">1 stop conflict</span></td></tr>
+      <tr><td>R-117</td><td>Hired — 20ft</td><td>2</td><td>51%</td><td><span class="pill p-sky">Awaiting driver</span></td></tr></table>
+    </div>
+    <div class="card" style="grid-column:span 5; grid-row:span 2;">
+      <div class="cardtitle">You / The system</div>
+      <table>
+      <tr><td style="color:var(--dim)">You</td><td>Approve the plan (1 tap)</td></tr>
+      <tr><td style="color:var(--dim)">System</td><td>Routes, load match, driver messages, client ETAs</td></tr></table>
+    </div>
+    <div class="card kpi" style="grid-column:span 5; grid-row:span 2;"><div class="lab">Planning time</div><div class="val">4 min</div><div class="sub">was 1.5 hours every evening</div></div>
+  </div>`), cap:['DISPATCH','Every driver’s day plans itself at 6am. You approve it with one tap.',ACCENTS.amber] },
+
+// 6 QUOTES
+{ accent:ACCENTS.sky, html: shell('Quotes','Quotes — Northline Traders',`
+  <div class="grid" style="grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(4,1fr);">
+    <div class="card" style="grid-column:span 5; grid-row:span 4;">
+      <div class="cardtitle">Open quotes <span>23 active</span></div>
+      <table><tr><th>Client</th><th>Value</th><th>Age</th></tr>
+      <tr><td>Northline Traders</td><td>₹1,84,500</td><td><span class="pill p-sky">Replying</span></td></tr>
+      <tr><td>Corex Polymers</td><td>₹96,200</td><td><span class="pill p-mint">2 days</span></td></tr>
+      <tr><td>Anchor Textiles</td><td>₹2,41,000</td><td><span class="pill p-amber">6 days</span></td></tr>
+      <tr><td>Harbor Foods</td><td>₹58,900</td><td><span class="pill p-blood">11 days</span></td></tr></table>
+    </div>
+    <div class="card" style="grid-column:span 7; grid-row:span 4;">
+      <div class="cardtitle">Follow-up thread <span>sent automatically until they answer</span></div>
+      <div class="chat">
+        <div class="msg sys">Hi, sharing the quote for the Chennai → Surat weekly run: ₹1,84,500 all-in. Valid till Friday.<div class="meta">Day 0 · sent by system</div></div>
+        <div class="msg sys">Following up on the weekly run quote. Happy to hold Friday pricing if the volume is confirmed this week.<div class="meta">Day 3 · sent by system</div></div>
+        <div class="msg them">Sorry for the delay. Can you do a trial month at that rate?<div class="meta">Day 5 · client reply → routed to you</div></div>
+      </div>
+    </div>
+  </div>`), cap:['QUOTES','Follow-ups send themselves until the client answers. You only enter at yes.',ACCENTS.sky] },
+
+// 7 REPORTS
+{ accent:ACCENTS.mint, html: shell('Reports','Reports — August',`
+  <div class="grid" style="grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(4,1fr);">
+    <div class="card" style="grid-column:span 7; grid-row:span 4;">
+      <div class="cardtitle">Profit by route <span>this month</span></div>
+      ${[['Kochi → Pune',86,'#4ADE9E'],['Chennai → Surat',72,'#4ADE9E'],['Kochi → Bengaluru',64,'#5CA8F0'],['Coimbatore → Hyd',41,'#F5B84D'],['Spot / hired loads',18,'#E4573F']].map(r=>`
+        <div style="margin-bottom:18px;"><div style="display:flex; font-size:14.5px;"><span>${r[0]}</span><span style="margin-left:auto; color:var(--dim)">${r[1]}%</span></div>
+        <div class="bar"><i style="width:${r[1]}%; background:${r[2]}"></i></div></div>`).join('')}
+    </div>
+    <div class="card kpi" style="grid-column:span 5; grid-row:span 2;"><div class="lab">Invoice lag</div><div class="val">4 hrs</div><div class="sub">was 3 days — invoice generates on delivery</div></div>
+    <div class="card kpi" style="grid-column:span 5; grid-row:span 2;"><div class="lab">Margin visibility</div><div class="val">Per run</div><div class="sub">was "we find out at year end"</div></div>
+  </div>`), cap:['REPORTS','You stop asking "did we make money on that route." It tells you, per run.',ACCENTS.mint] },
+
+// 8 ASSISTANT
+{ accent:ACCENTS.amber, html: shell('Assistant','Assistant',`
+  <div class="grid" style="grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(4,1fr);">
+    <div class="card" style="grid-column:span 7; grid-row:span 4;">
+      <div class="cardtitle">Ask anything about your business</div>
+      <div class="chat">
+        <div class="msg them">Which clients are slipping?</div>
+        <div class="msg sys">Two look at risk: Anchor Textiles has been quiet 9 days after a ₹2.4L quote, and Harbor Foods' volume is down 40% vs their 3-month average. Want me to draft check-in messages for both?<div class="meta">answered from your live data, not a report someone compiled</div></div>
+        <div class="msg them">Yes, draft both.</div>
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 5; grid-row:span 4;">
+      <div class="cardtitle">It already did today</div>
+      <table>
+      <tr><td>Chased 4 unpaid invoices</td><td><span class="pill p-mint">Done</span></td></tr>
+      <tr><td>Flagged stop conflict on R-116</td><td><span class="pill p-amber">Needs you</span></td></tr>
+      <tr><td>Filed 11 PODs to client folders</td><td><span class="pill p-mint">Done</span></td></tr>
+      <tr><td>Updated fuel cost per route</td><td><span class="pill p-mint">Done</span></td></tr></table>
+    </div>
+  </div>`), cap:['ASSISTANT','It works inside your data. You talk to your business like a person.',ACCENTS.amber] },
+
+// 9 CLOSE
+{ accent:ACCENTS.mint, html:`
+  <div class="heroframe"><div class="shellghost"></div>
+    <h1>Your business. <b>One screen.</b></h1>
+    <p>Everything you just saw runs on your data, in your brand, with your team's names on it.</p>
+  </div>`, cap:['NEXT','The walkthrough of YOUR version takes 30 minutes. That is the next step.',ACCENTS.mint] },
+];
+
+const canvas = document.getElementById('canvas');
+canvas.innerHTML = screens.map((s,i)=>`<div class="screen" data-i="${i}" style="--accent:${s.accent}">${s.html}${caption(s.cap[0], s.cap[1], i+1, screens.length, s.cap[2])}</div>`).join('');
+const els = [...canvas.querySelectorAll('.screen')];
+let cur = 0;
+function show(i){ cur = Math.max(0, Math.min(screens.length-1, i));
+  els.forEach((e,j)=>e.classList.toggle('active', j===cur));
+  location.hash = '#'+(cur+1); }
+addEventListener('keydown', e=>{
+  if (e.key==='ArrowRight'||e.key===' ') show(cur+1);
+  if (e.key==='ArrowLeft') show(cur-1);
+  if (/^[1-9]$/.test(e.key)) show(+e.key-1);
+});
+addEventListener('click', e=>{ if (e.clientX > innerWidth/2) show(cur+1); else show(cur-1); });
+function fit(){ const s = Math.min(innerWidth/1920, innerHeight/1080);
+  canvas.style.transform = `scale(${s})`; }
+new ResizeObserver(fit).observe(document.body);
+addEventListener('resize', fit);
+fit();
+show((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>
